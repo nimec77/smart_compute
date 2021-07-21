@@ -1,7 +1,7 @@
 import 'dart:isolate';
 
 class SmartTaskResult {
-  SmartTaskResult({required this.result, required this.capability});
+  const SmartTaskResult({required this.result, required this.capability});
 
   final dynamic result;
   final Capability capability;

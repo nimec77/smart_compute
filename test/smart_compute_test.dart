@@ -1,9 +1,8 @@
 import 'package:dartz/dartz.dart';
 import 'package:smart_compute/smart_compute.dart';
-import 'package:smart_compute/src/errors.dart';
 import 'package:test/test.dart';
 
-typedef EitherInt = Either<Exception, int>;
+typedef EitherInt = Either<Error, int>;
 
 void main() {
   test('Smart compute turn on', () async {
@@ -33,7 +32,16 @@ void main() {
     expect(smartCompute.isRunning, equals(false));
     await smartCompute.turnOn();
     expect(smartCompute.isRunning, equals(true));
-    final result = await smartCompute.compute<int, EitherInt>(eitherFib, param: 20);
+    final result = await smartCompute.compute<int, int>(eitherFib, param: 20);
+    expect(result, equals(Right(fib20())));
+    await smartCompute.turnOff();
+  });
+
+  test('Execute either function with param', () async {
+    final smartCompute = SmartCompute();
+    await smartCompute.turnOn();
+
+    final result = await smartCompute.compute<int, int>(eitherFib, param: 20);
     expect(result, equals(Right(fib20())));
     await smartCompute.turnOff();
   });
@@ -42,7 +50,7 @@ void main() {
     final smartCompute = SmartCompute();
     await smartCompute.turnOn();
 
-    final result = await smartCompute.compute<int, EitherInt>(eitherFib, param: 20);
+    final result = await smartCompute.compute<int, int>(fib, param: 20);
     expect(result, equals(Right(fib20())));
     await smartCompute.turnOff();
   });
@@ -53,9 +61,9 @@ void main() {
 
     const numOfTasks = 500;
     final result = await Future.wait(
-      List<Future<Either<Exception, int>>>.generate(
+      List<Future<EitherInt>>.generate(
         numOfTasks,
-        (_) async => await smartCompute.compute<int, EitherInt>(eitherFib, param: 30),
+        (_) async => await smartCompute.compute<int, int>(eitherFib, param: 30),
       ),
     );
 
@@ -66,31 +74,31 @@ void main() {
     await smartCompute.turnOff();
   });
 
-  test('Execute function without params', () async {
+  test('Execute either function without params', () async {
     final smartCompute = SmartCompute();
     await smartCompute.turnOn();
 
-    final result = await smartCompute.compute<int, EitherInt>(eitherFib20);
+    final result = await smartCompute.compute<int, int>(eitherFib20);
 
     expect(result, equals(eitherFib20()));
     await smartCompute.turnOff();
   });
 
-  test('Execute static method', () async {
+  test('Execute either static method', () async {
     final smartCompute = SmartCompute();
     await smartCompute.turnOn();
 
-    final result = await smartCompute.compute<int, EitherInt>(Fibonacci.eitherFib, param: 20);
+    final result = await smartCompute.compute<int, int>(Fibonacci.eitherFib, param: 20);
 
     expect(result, equals(Fibonacci.eitherFib(20)));
     await smartCompute.turnOff();
   });
 
-  test('Execute async method', () async {
+  test('Execute either async method', () async {
     final smartCompute = SmartCompute();
     await smartCompute.turnOn();
 
-    final result = await smartCompute.compute<int, EitherInt>(eitherFibAsync, param: 20);
+    final result = await smartCompute.compute<int, int>(eitherFibAsync, param: 20);
 
     expect(result, equals(await eitherFibAsync(20)));
     await smartCompute.turnOff();
@@ -100,24 +108,27 @@ void main() {
     final smartCompute = SmartCompute();
     await smartCompute.turnOn();
 
-    final result = await smartCompute.compute<int, EitherInt>(eitherErrorFib, param: 20);
+    final result = await smartCompute.compute<int, int>(eitherErrorFib, param: 20);
 
     expect(result.isLeft(), equals(true));
     result.leftMap((exception) {
-      expect(exception, isA<Exception>());
-      expect(exception.toString(), 'Exception: Something went wrong');
+      expect(exception, isA<Error>());
+      expect(exception.toString(), 'Bad state: Exception: Something went wrong');
     });
     await smartCompute.turnOff();
   });
 
-  test('Error method', () async {
+  test('Exception method', () async {
     final smartCompute = SmartCompute();
     await smartCompute.turnOn();
 
-    expect(
-      () async => await smartCompute.compute<int, int>(errorFib, param: 20),
-      throwsA(isA<RemoteExecutionError>()),
-    );
+    final result = await smartCompute.compute<int, int>(errorFib, param: 20);
+    expect(result.isLeft(), equals(true));
+    result.leftMap((error) {
+      expect(error, isA<Error>());
+      expect(error.toString(), 'Exception: Something went wrong');
+    });
+    await smartCompute.turnOff();
   });
 
   test('SmartCompute is a singleton', () async {
@@ -127,6 +138,7 @@ void main() {
     expect(smartCompute1 == smartCompute2, equals(true));
   });
 }
+
 
 EitherInt eitherFib(int n) {
   return Right(fib(n));
@@ -144,7 +156,7 @@ EitherInt eitherErrorFib(int n) {
   try {
     return Right(errorFib(n));
   } on Exception catch (e) {
-    return Left(e);
+    return Left(StateError(e.toString()));
   }
 }
 

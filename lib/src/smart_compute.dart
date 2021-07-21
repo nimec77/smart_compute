@@ -1,3 +1,4 @@
+import 'package:dartz/dartz.dart';
 import 'package:smart_compute/src/smart_api/smart_api.dart';
 
 class SmartCompute {
@@ -15,7 +16,7 @@ class SmartCompute {
     return _smartDelegate.turnOn();
   }
 
-  Future<R> compute<P, R>(
+  Future<Either<Error, R>> compute<P, R>(
     Function fn, {
     P? param,
   }) async {

@@ -2,18 +2,14 @@ import 'dart:async';
 import 'dart:isolate';
 
 import 'package:dartz/dartz.dart';
-import 'package:smart_compute/src/errors.dart';
 import 'package:smart_compute/src/smart_api/smart_task_result.dart';
 
 import 'smart_task.dart';
 
+typedef ReturnType = Either<Exception, dynamic>;
+
 typedef OnResultCallback = void Function(
   SmartTaskResult result,
-  Worker worker,
-);
-
-typedef OnErrorCallback = void Function(
-  RemoteExecutionError error,
   Worker worker,
 );
 
@@ -40,7 +36,7 @@ class Worker {
   late final Stream _broadcastReceivePort;
   late final StreamSubscription _broadcastPortSubscription;
 
-  Future<void> init({required OnResultCallback onResult, required OnErrorCallback onError}) async {
+  Future<void> init({required OnResultCallback onResult}) async {
     _receivePort = ReceivePort();
 
     _isolate = await Isolate.spawn(
@@ -57,10 +53,6 @@ class Worker {
     _broadcastPortSubscription = _broadcastReceivePort.listen((res) {
       status = WorkerStatus.idle;
 
-      if (res is RemoteExecutionError) {
-        onError(res, this);
-        return;
-      }
       onResult(res as SmartTaskResult, this);
     });
   }
@@ -98,8 +90,14 @@ Future<void> isolateEntryPoint(IsolateInParams params) async {
       final result = SmartTaskResult(result: computationResult, capability: task.capability);
 
       sendPort.send(result);
-    } catch (e) {
-      sendPort.send(RemoteExecutionError(e.toString(), task.capability));
+    } on Error catch (error) {
+      final remoteError = RemoteError(error.toString(), error.stackTrace.toString());
+      final result = SmartTaskResult(result: remoteError, capability: task.capability);
+      sendPort.send(result);
+    } on Exception catch (exception) {
+      final remoteError = RemoteError(exception.toString(), 'Stack trace not available');
+      final result = SmartTaskResult(result: remoteError, capability: task.capability);
+      sendPort.send(result);
     }
   }
 }

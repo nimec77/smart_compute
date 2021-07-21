@@ -3,25 +3,23 @@
 import 'package:dartz/dartz.dart';
 import 'package:smart_compute/smart_compute.dart';
 
-typedef EitherInt = Either<Exception, int>;
+typedef EitherInt = Either<Error, int>;
 
 void main() async {
   final smartCompute = SmartCompute();
   await smartCompute.turnOn();
 
-  final a = await smartCompute.compute<int, EitherInt>(eitherAsyncFib, param: 40);
+  final a = await smartCompute.compute<int, int>(eitherAsyncFib, param: 40);
   print('Calculate a:$a');
 
-  final b = await smartCompute.compute<int, EitherInt>(eitherFib, param: 30);
+  final b = await smartCompute.compute<int, int>(eitherFib, param: 30);
   print('Calculate b:$b');
 
-  try {
-    final c = await smartCompute.compute<int, int>(fib, param: null);
-    print('Calculate c:$c');
-  } catch (e) {
-    print(e);
-    print('Task a failed');
-  }
+  final c = await smartCompute.compute<int, int>(fib, param: 20);
+  print('Calculate c:$c');
+
+  final d = await smartCompute.compute<int, int>(fib, param: null);
+  print('Calculate: d:$d');
 
 
   await smartCompute.turnOff();

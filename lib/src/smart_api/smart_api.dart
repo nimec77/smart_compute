@@ -3,13 +3,10 @@ import 'dart:collection';
 import 'dart:isolate';
 
 import 'package:dartz/dartz.dart';
-import 'package:smart_compute/src/errors.dart';
 import 'package:smart_compute/src/smart_api/smart_task_result.dart';
 import 'package:smart_compute/src/smart_api/worker.dart';
 
 import 'smart_task.dart';
-
-typedef EitherInt = Either<Exception, int>;
 
 class SmartAPI {
   bool isRunning = false;
@@ -24,7 +21,7 @@ class SmartAPI {
     if (_worker == Worker.empty()) {
       _worker = Worker('smart_worker');
     }
-    await _worker.init(onResult: _onTaskFinished, onError: _onTaskFailed);
+    await _worker.init(onResult: _onTaskFinished);
 
     isRunning = true;
   }
@@ -38,21 +35,12 @@ class SmartAPI {
     }
   }
 
-  void _onTaskFailed(RemoteExecutionError error, Worker worker) {
-    _activeTaskCompleters.remove(error.taskCapability)!.completeError(error);
-
-    if (_taskQueue.isNotEmpty) {
-      final task = _taskQueue.removeFirst();
-      _worker.execute(task);
-    }
-  }
-
-  Future<R> compute<P, R>(
+  Future<Either<Error, R>> compute<P, R>(
     Function fn, {
     P? param,
   }) async {
     final taskCapability = Capability();
-    final taskCompleter = Completer<R>();
+    final taskCompleter = Completer();
 
     final task = SmartTask(
       task: fn,
@@ -68,21 +56,27 @@ class SmartAPI {
       _worker.execute(task);
     }
 
-    return await taskCompleter.future;
+    final result = await taskCompleter.future;
+    if (result is Either<Error, R>) {
+      return result;
+    }
+
+    if (result is RemoteError) {
+      return Left(result);
+    }
+
+    return Right(result);
   }
 
   Future<void> turnOff() async {
     await _worker.dispose();
 
-    _activeTaskCompleters
-      ..forEach((taskCapability, completer) {
-        if (!completer.isCompleted) {
-          completer.complete(
-            Left(RemoteExecutionError('Cancel because of smart_compute turn off', taskCapability)),
-          );
-        }
-      })
-      ..clear();
+    for (final completer in _activeTaskCompleters.values) {
+      if (!completer.isCompleted) {
+        completer.complete(Left(Exception('Cancel because of smart_compute turn off')));
+      }
+    }
+    _activeTaskCompleters.clear();
 
     _worker = Worker.empty();
     _taskQueue.clear();

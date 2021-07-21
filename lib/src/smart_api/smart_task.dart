@@ -1,14 +1,14 @@
 import 'dart:isolate';
 
-class SmartTask {
-  SmartTask({
+class SmartTask<P> {
+  const SmartTask({
     required this.task,
     required this.param,
     required this.capability,
   });
 
   final Function task;
-  final dynamic param;
+  final P param;
 
   final Capability capability;
 }
