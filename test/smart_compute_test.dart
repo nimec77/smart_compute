@@ -1,5 +1,6 @@
 import 'package:dartz/dartz.dart';
 import 'package:smart_compute/smart_compute.dart';
+import 'package:smart_compute/src/errors.dart';
 import 'package:test/test.dart';
 
 typedef EitherInt = Either<Exception, int>;
@@ -95,7 +96,7 @@ void main() {
     await smartCompute.turnOff();
   });
 
-  test('Error method', () async {
+  test('Left method', () async {
     final smartCompute = SmartCompute();
     await smartCompute.turnOn();
 
@@ -107,6 +108,16 @@ void main() {
       expect(exception.toString(), 'Exception: Something went wrong');
     });
     await smartCompute.turnOff();
+  });
+
+  test('Error method', () async {
+    final smartCompute = SmartCompute();
+    await smartCompute.turnOn();
+
+    expect(
+      () async => await smartCompute.compute<int, int>(errorFib, param: 20),
+      throwsA(isA<RemoteExecutionError>()),
+    );
   });
 
   test('SmartCompute is a singleton', () async {

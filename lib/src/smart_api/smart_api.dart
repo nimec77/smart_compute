@@ -9,6 +9,8 @@ import 'package:smart_compute/src/smart_api/worker.dart';
 
 import 'smart_task.dart';
 
+typedef EitherInt = Either<Exception, int>;
+
 class SmartAPI {
   bool isRunning = false;
 
@@ -22,7 +24,7 @@ class SmartAPI {
     if (_worker == Worker.empty()) {
       _worker = Worker('smart_worker');
     }
-    await _worker.init(onResult: _onTaskFinished);
+    await _worker.init(onResult: _onTaskFinished, onError: _onTaskFailed);
 
     isRunning = true;
   }
@@ -36,12 +38,21 @@ class SmartAPI {
     }
   }
 
+  void _onTaskFailed(RemoteExecutionError error, Worker worker) {
+    _activeTaskCompleters.remove(error.taskCapability)!.completeError(error);
+
+    if (_taskQueue.isNotEmpty) {
+      final task = _taskQueue.removeFirst();
+      _worker.execute(task);
+    }
+  }
+
   Future<R> compute<P, R>(
     Function fn, {
     P? param,
   }) async {
     final taskCapability = Capability();
-    final taskCompleter = Completer();
+    final taskCompleter = Completer<R>();
 
     final task = SmartTask(
       task: fn,

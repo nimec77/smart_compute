@@ -12,6 +12,11 @@ typedef OnResultCallback = void Function(
   Worker worker,
 );
 
+typedef OnErrorCallback = void Function(
+  RemoteExecutionError error,
+  Worker worker,
+);
+
 enum WorkerStatus { idle, processing }
 
 class IsolateInParams {
@@ -35,7 +40,7 @@ class Worker {
   late final Stream _broadcastReceivePort;
   late final StreamSubscription _broadcastPortSubscription;
 
-  Future<void> init({required OnResultCallback onResult}) async {
+  Future<void> init({required OnResultCallback onResult, required OnErrorCallback onError}) async {
     _receivePort = ReceivePort();
 
     _isolate = await Isolate.spawn(
@@ -52,6 +57,10 @@ class Worker {
     _broadcastPortSubscription = _broadcastReceivePort.listen((res) {
       status = WorkerStatus.idle;
 
+      if (res is RemoteExecutionError) {
+        onError(res, this);
+        return;
+      }
       onResult(res as SmartTaskResult, this);
     });
   }
@@ -81,6 +90,7 @@ Future<void> isolateEntryPoint(IsolateInParams params) async {
   final sendPort = params.sendPort..send(receivePort.sendPort);
 
   await for (final task in receivePort.cast<SmartTask>()) {
+    try {
       final shouldPassParam = task.param != null;
 
       final computationResult = shouldPassParam ? await task.task(task.param) : await task.task();
@@ -88,5 +98,8 @@ Future<void> isolateEntryPoint(IsolateInParams params) async {
       final result = SmartTaskResult(result: computationResult, capability: task.capability);
 
       sendPort.send(result);
+    } catch (e) {
+      sendPort.send(RemoteExecutionError(e.toString(), task.capability));
+    }
   }
 }
