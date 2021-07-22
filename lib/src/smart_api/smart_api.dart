@@ -73,7 +73,7 @@ class SmartAPI {
 
     for (final completer in _activeTaskCompleters.values) {
       if (!completer.isCompleted) {
-        completer.complete(Left(Exception('Cancel because of smart_compute turn off')));
+        completer.complete(Left(RemoteError('Cancel because of smart_compute turn off', 'Stack trace not available')));
       }
     }
     _activeTaskCompleters.clear();
